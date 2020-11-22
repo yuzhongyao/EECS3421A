@@ -1,0 +1,19 @@
+/*Yu Zhong Yao
+*215472616
+*EECS3421 A
+*Parke, Godfrey
+*November 6, 2020
+*Project 2
+*/
+
+
+
+    sin    |        time         | test_result  |      testtype      |       testcentre        | offered 
+-----------+---------------------+--------------+--------------------+-------------------------+---------
+ 551234123 | 2020-10-01 09:06:08 | self-isolate | Blood test         | Test centre Vaughan     | yes
+ 541230987 | 2020-10-01 15:23:12 | no action    | PCR test           | Test centre Etobicoke   | yes
+ 123456789 | 2020-10-01 17:49:11 | hospitalize  | Blood test         | Test centre Markham     | yes
+ 421321777 | 2020-10-01 18:31:59 | self-isolate | Rapid Antigen test | Test centre Scarborough | yes
+ 551234123 | 2020-10-01 21:00:23 | self-isolate | Rapid Antigen test | Test centre Scarborough | yes
+ 987362617 | 2020-10-01 21:00:23 | hospitalize  | Blood test         | Test centre North York  | yes
+(6 rows)
