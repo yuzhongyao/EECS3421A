@@ -1,0 +1,221 @@
+York U. LogoEECS-4415 Logo
+EECS-3421 (A & B)
+Introduction to Database Systems
+York University
+Fall 2020
+Project #2
+Relational Schema: Contact Tracing
+The Project
+In this project, you will create, populate (that is, add data to), and query a database in the PostgreSQL RDBMS at EECS's DB server. Thus, you are to
+
+create the relational schema (the tables) based upon an E/R design which we are providing,
+populate the tables with some example data, and then
+execute two SQL queries that demonstrate the viability of your schema.
+Step one is to create the tables. You should follow the rules for translating entities and relationship as described in the textbook and shown in class. There is not much room for flexibility here.
+
+In step two, you will populate your tables with some example data, based on the given information. You can make this data up; however, your data will have to comply with your schema and the constraints outlined in this project.
+
+For step three, we provide you with two SQL queries. Once you have finished step two, you should run the provided queries against your database, and get corresponding result.
+
+The Domain
+You are to implement a contact-tracing database (CTDB) based on the following contact tracing E/R design.
+
+The Conceptual Design
+Contract Tracing E/R Schema 
+This conceptual design is an E/R-schema solution to Project #1 for the Contact Tracing domain, having made some sensible design assumptions, and with some minor additions.
+
+Recon is weak on Person, Place, Time Slot, and Method. It is important to include method as part of the key of Recon; there could be more than one recon telling us a person was at a place at a given time, each recon supported by different evidence (method).
+
+We may have a person observed at different places during the same time (slot) and recorded with the same method, due to the way we are handling time: Each time value represents a fifteen-minute period.
+
+A Test Centre is a Place. A Test is administered at a Test Centre, not at any arbitrary place. We need to have Test Centre as a subtype of Place then, with Test Centre having the relationship with Test.
+
+An addition in this E/R schema over the requirements of Project #1 is as follows.
+
+Non-key attributes in the E/R diagram that are in italics are to be interpreted as non-nullable. (This is information beyond what was in the requirements in Project #1. Note that you need not to have accommodated this in your solution to Project #1.)
+Use this E/R diagram as the specification for your relational schema for your CTDB.
+
+Your Relational Schema
+Translate the E/R diagram into an “equivalent” relational schema in SQL's DDL (data definition language). Do not create any tables that are not needed. Declare primary keys and foreign keys per table appropriately to capture the logic of the E/R diagram correctly.
+
+Choose appropriate domain types — e.g., numeric(), timestamp, and varchar(…) — as is appropriate, or, in some cases, as dictated in the requirements below. Refer to PostgreSQL's Documentation for all the built-in general-purpose data types.
+
+Key attributes and ones in italics in the E/R diagram should be declared as not nullable.
+
+For attribute and table names, carry over those names from the E/R diagram where you can, and make sensible choices that are compatible with the queries provided. (You are not permitted to change the queries provided. So your schema should be compatible with the queries.)
+
+Your Data
+Add data to your tables, following these rules.
+
+Add to your database at least:
+
+5 people(persons)
+20 recons
+6 tests
+3 test centres
+3 actions
+3 test types
+The Social Insurance Number (sin) for a person is a nine-digit number.
+
+Each recon is supported by evidence, a method. Consider the following to be the values for method: “contact-tracing phone app”, “surveillance camera”, ”registry sign in”, and “registry sign out”.
+
+A person should have recon's of a “registry sign in” upon entering and a “registry sign out” upon exiting a test centre, if the person has a test administered to them there. (The data should be that any sign-in is “followed by” a sign-out. There should not be cases where a person signed in but never signed out, or signed out without ever having signed in.)
+
+A test that is of a given test type may only be administered in a test center that offers that test type.
+
+A time value identifies the beginning of a fifteen-minute time slot; e.g., “3:00pm 25 September 2020” stands for 3:00pm up to 3:15pm on 25 September 2020.
+
+Note that there is repetition of values in a relation database! Columns, and the values of those columns, are duplicated between tables to support the foreign keys. This is called controlled redundancy, though; the primary keys, additional keys via unique, and foreign keys control these repeated values. So this does not violate our single-source-of-truth principle. (The relational model uses the data themselves to relate tuples between tables, not pointers.)
+
+We strongly recommend that you use a decent text editor, so that you can cut and paste values efficiently and can modify rows of text together. Build your schema script and data script in files from the beginning, loading these files into DB (the PostgreSQL server in PRISM) via psql as needed. This will greatly reduce the amount to grunt work you would have to do otherwise for this project.
+
+The Queries
+We provide two queries as follow to run against your database. Ensure that your schema is compatible with the queries's syntax.
+
+Once you have populated your database — added data as specified above (§Your Data ) — you should check that these queries run against your database successfully. (Fix your schema and data until they do.)
+
+1. check
+
+For each test, list all its attributes and whether the type of the test as recorded — “yes” or “no” — is, in fact, offered by the test centre where the test was administered.
+
+select  *,
+        (case when t.testtype in 
+                  (select testtype 
+                   from   Offer as o 
+                   where  o.testcentre = t.testcentre)
+         then 'yes' else 'no' end) as offered
+from  Test as t;
+2. track
+
+For each test, list the person's sin and name, the time (slot) when s/he took the test, and the times that the person entered and exited the test centre around when the test was administered.
+
+with Visit (sin, placename, enterTime, exitTime) as (
+        select  Entry.sin, 
+                Entry.placename,
+                Entry.time,
+                min(Exit.time)
+        from  Recon as Entry,
+              Recon as Exit
+        where Entry.sin = Exit.sin
+          and Entry.placename = Exit.placename
+          and Entry.method    = 'registry sign in'
+          and Exit.method     = 'registry sign out'
+          and Entry.time     <= Exit.time
+        group by Entry.sin, Entry.placename, Entry.time
+)
+select  P.sin, P.name, T.time as testTime, V.enterTime, V.exitTime
+from    Person as P, Test as T, Visit as V
+where   P.sin        = T.sin
+  and   T.sin        = V.sin
+  and   T.testcentre = V.placename
+  and   T.time      >= V.enterTime
+  and   T.time      <= V.exitTime;
+If you have t tuples in your table Test, each query above should result in t rows.
+
+For query check, the offered value should be 'yes' for each row returned.
+
+Note that the SQL queries are really testing that your relational schema is correct, and that your data follows the rules we provided. If you are finding there are errors to execute the queries, check that your schema is making sense. The problem could be with the schema. If you are finding the answer tables to the queries are not as described above, check that your data is populated as required.
+
+Example
+The York River Bookstore Schema
+The York River Bookstore (YRB) schema script is for a small database that is similar to the example discussed in class. You can reference it as an example for doing this project. Note that the file has both the schema and the data in the same file; you are asked to put these in seperate files for your schema and data, however.
+
+The file yrb-drop is a simple file of SQL drop commands that clears out the YRB database. You may find you want to make a “drop” file too for your database, as you will likely find doing the project is quite an iterative process.
+
+PostgreSQL @ EECS
+Resources
+PRISM Account
+You need a Prism / EECS computer account to do Project #2 and onward. If you do not have one, do get one set up as soon as possible.
+
+PRISM's account information
+the PostgreSQL database system
+
+PostgreSQL on PRISM
+psql: PostgreSQL's shell client (a guide to using psql with PRISM's DB)
+Tutorial Video for using PostgreSQL on PRISM
+from PostgreSQL
+The SQL Language
+PostgreSQL Documentation V11 Online Manuals for PostgreSQL Users
+SQL
+
+this class (our textbook, notes, videos, and lectures)
+from W3Schools
+SQL Tutorial Online SQL Tutorial by W3Schools
+Deliverables
+Due Date
+The project is due by
+
+11:59pm Friday 6 November 2020
+by electronic submission.
+
+Materials
+You should submit the following four or five files.
+
+schema:
+The SQL creation script that you wrote and used to create your database under PostgreSQL.
+
+This will be a sequence of SQL CREATE statements, each separated by a semicolon (the statement terminator).
+
+For full credit, you must create all appropriate primary key and foreign key constraints, enforce participation constraints where possible, and give appropriate domain types to the attributes.
+
+data: An SQL script that adds the requested data to your database under PostgreSQL.
+
+This will be a sequence of SQL INSERT statements. (Do not use COPY for this project. It is the command for bulk loading.)
+
+check:
+An ASCII file containing the answer-table output from running the SQL Query #1, Check, against your database.
+
+track:
+An ASCII file containing the answer-table output from running the SQL Query #2, Track, against your database.
+
+note (optional):
+An ASCII text file with any clarifications of the above, if you feel it necessary.
+
+All your files being submitted online must be ASCII text files (e.g., “.txt”). Files in any other format — MS Word, PDF, etc. — will be discarded.
+
+Submission
+You are to submit your project in electronic form via the submit script on PRISM, the EECS network machines (e.g., red.eecs.yorku.ca).
+
+To submit:
+
+% submit 3421X schema schema data check track
+Or, if you have additionally a note file,
+
+% submit 3421X schema schema data check track note
+Replace “X” above in the “3421X” with “A” if you are in Section A (with Parke Godfrey) or with “B” if you are in Section B (with Wenxiao Fu).
+
+Note that the first occurrence of the word “schema” in the submit command above is the project name (which tells submit to where to submit your files). The second occurrence of the word “schema” is the name of your schema creation file. (As data, check, and track are your files too that you are submitting.)
+
+EECS's web submit utility is simply a web-gui frontend for submit. You are welcome to use it instead of the command-line submit, if you prefer.
+
+FAQ
+Populating our schema with the data required is so much work! Do I have to do this?
+
+Yes, this is part of the project. This should not be as bad as it might initially look. But do not wait until the last minute!
+
+Should I add constraints that I think should be here but that are not reflected in the E/R diagram above, or just faithfully render this E/R diagram into a relational schema?
+
+Faithfully render this E/R diagram into a relational schema.
+
+I did a lot of my work creating tables and populating data directly within the psql client shell. Is there an easy way I can “export” from Postgres the SQL for creating my schema and for populating my data?
+
+Yes, there is a command pg_dump that will do this. E.g.,
+
+% pg_dump -h db -U godfrey -d godfrey
+Replacing “godfrey” for user (-U) and database (-d) with your own, of course. And
+
+% ./pg_dump -h db -U godfrey -d godfrey -f ~/myCTDB.sql
+to have the output put into a file (e.g, myCTDB.sql), instead. (Or just use *nix shell redirect, “>”, of course.)
+
+In the E/R schema given, couldn't Recon have been modelled as a multi-way relationship set instead of a weak entity set weak on all the things it relates? And, if so, wouldn't that be a simpler design?
+
+Yes and yes. In this case, the multi-way relationship version and this weak entity set version have the same logic. And we generally do advocate for simplicity. (Note that an equivalent relational schema will be the same in either case!)
+
+This version came about because we were considering whether to have Recon weak on Place when we were modelling this for Project #1 ourselves. If we wanted to change the logic so it is not weak on Place — thus, Recon's key becomes the union of the keys from Person, Time Slot, and Method — we could modify this easily. With the multi-way version, we can model this too; but understanding arrows from a multi-way can be tricky, as we have seen.
+
+And if we were looking actually to enforce, “a person cannot be in two places at the same time,” we would need to have Recon just weak on Person and Time Slot, and then related to Place with a many-one, but related to Method with a many-many. The requirements had said there could be more than one way (method) that confirms that a person was at a place at a given time. We could not model this with Recon as a multi-way relationship set.
+
+—Parke Godfrey (Section A)
+—Wenxiao Fu (Section B)
+—Nasim Razavi (TA)
+—Gehad Ouda (TA)
