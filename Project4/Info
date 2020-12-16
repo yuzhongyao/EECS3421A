@@ -1,0 +1,233 @@
+York U. LogoEECS-3421 Logo
+EECS-3421A
+Introduction to Database Systems
+York University
+Fall 2020
+Project #4
+Application:
+Quest On
+The Project
+In this project, you will write an application program in Java using JDBC that will update the RR-DB database.
+
+The Raccoon-Rhapsody Database
+The database is the very same Raccoon Rhapsody database from Project #3. The same two scripts are provided here for convenience:
+
+rrdb-create
+rrdb-drop
+As in Project #3, you each are working with your own copy of the database. This time having your own version of the RR-DB database is critical as your application is modifying the database. If students were each modifying the same database, chaos would ensue! In a real-world scenario, of course, we all would be working on the same database, and we would need to be quite careful.
+
+The Task
+Raccoon Rhapsody, the multi-player online game by Questeme, has become wildly popular. The company wants to streamline maintaining the RR-DB database that backs the game.
+
+One task that game administrators have to do is to create new quests on a regular basis for the players. This involves making a new entry into the Quest table for the new quest for a future day with a given theme and region. And then assigning loot — adding to the Loot table — for the new quest. (Of course, much more too has to be done. The game designers have to come up with the story line for the new quest, the artists sometimes must create new gaming assets for the quest and perhaps new scenes, etc. But we do not have to worry about those aspects!)
+
+You have been asked to automate this task with an application program, let us call it CreateQuest. You are to make this in Java using JDBC; so, CreateQuest.java. The app should connect with Questeme's PostgreSQL database server at db (okay, really EECS's) with the RR-DB database to make the necessary updates on request.
+
+Specification
+The app will be called from the command line on one of Questeme's machines on its local area network (okay, EECS / PRISM); e.g.,
+
+% java CreateQuest '2021-01-15' Camelot 'Merlin Prophesy' 20000 godfrey 0.618
+The app then adds that quest to the database, if possible, and populates the quest with loot.
+
+Parameters
+
+CreateQuest <day> <realm> <theme> <amount> [<user>] [seed]
+day: the day for the new quest
+realm: which realm the new quest is in
+theme: the theme for the new quest
+amount: the floor for the sum of the assigned loot by value (sql)
+user (optional): which user and database the app is connecting with and to, respectively. This should default to your user name (which is also your database's name).
+seed (optional): a real (float) number between -1 and 1 that is seeded before the use of random(). (If no seed is provided, then no seeding is to be done beforehand.)
+Your program should accept the command-line parameters as specified above.
+
+Error Messages
+
+The app should provide an error message back to the user for each of the following cases. (Your Java program should finish without failing in error itself in these cases!)
+
+day is not in future: if the day provided is not in the future, the app should state this and not make any changes to the database.
+realm does not exist: if the realm does not exist in the Realm table, the app should state this and not make any changes to the database.
+amount exceeds what is possible: if loot cannot be assigned by the loot rules listed below that meets or exceeds the sql amount requested, the app should state this and not make any changes to the database.
+seed value is improper: if the seed value is not a real between -1 and 1, the app should state this and not make any changes to the database.
+If a user (/ database) value is provided who does not exist, or for whom your program cannot successfully procure permissions, your Java program can fail. The failure trace will indicate the issue. Your app must work with the default user, your Postgres account in the class.
+
+Operation
+
+Given no failure mode occurs, your app should proceed to do the following.
+
+A tuple is added to the Quest table with the specified day, realm, and theme (in database user).
+Tuples are added to the Loot table that “asign” loot to the new quest, following the loot assignment rules below (in database user).
+Loot Assignment Rules
+
+Loot is to be assigned to the new quest randomly, but with the following two constraints.
+
+distinct. Two pieces of loot of the same type (treasure) are not assigned. (That is, we are sampling the Treasure table without replacement.)
+exceeds. The sum of the assigned loots's value — the corresponding sql in the Treasure table — equals or exceeds that requested (parameter amount).
+For exceeds, you may follow a strategy in which you add loot pieces one at a time until the amount is matched or exceeded by the last piece added. (You do not need to then go remove assigned loot to come back down closer to the amount.) Questeme is just wanting to assure the app does not go overboard on assigning loot to the new quest.
+
+Note that if you have assigned a piece of loot per type of treasure — say, by walking over the Treasure table in a “random” order — for every type of treasure but still have not met or exceeded the amount, then the loot assignment is not possible. In this case, your app should report that error.
+
+Design Considerations & Mandates
+The Driver (& the Java classpath)
+Your app needs a driver to set up the connection to our Postgres database server on db(.eecs.yorku.ca). We provide that in a JAR at /eecs/dept/course/2020-21/F/3421A/PG/ in the PRISM filesystem. The driver we are using is postgresql-42.2.14.jar. (You can grab this JAR from here or from the postgresql.org if you want to work on this outside of PRISM first.)
+
+To compile using this driver (and any packages in …/PG/), put
+
+/eecs/dept/course/2020-21/F/3421A/PG/\* and
+/eecs/dept/course/2020-21/F/3421A/PG/
+on your CLASSPATH so the Java compiler (javac) finds them. (The first lets javac find any JAR files in …/PG/, and the second any packages in …/PG/). Or you can specify this on the command line instead, of course, when you invoke the compile:
+
+% javac -cp '/eecs/dept/course/2020-21/F/3421A/PG/*:/eecs/dept/course/2020-21/F/3421A/PG/:.:' CreateQuest.java
+Authentication
+On setting up the database connection, the program has to provide the host, port, user, database, and password. But putting one's password in program source is extremely bad practice. So, we will not allow it here. Additionally, you are writing your program to be general, and not to hardcode the user / database name into the program. User godfrey, say, ought to be able to take your program later and execute, say,
+
+% java CreateQuest '2021-01-15' Camelot 'Merlin Prophesy' 20000 godfrey 0.618
+and have it work!
+
+The way this would be best set up, say, at Questeme, would be via SSL and certificates, to provide a “drop-through” authentication. But that is not feasible for this project.
+
+Instead, we shall use a .pg_pass file in your home directory on PRISM. Refer to the guide, psql: PostgreSQL's shell client (a guide to using psql with PRISM's DB), to set this up. (Yes, this is your Postgres password in a file, but in a single, protected place.) In that file, you will have a line like
+
+db:*:godfrey:godfrey:not_my_password
+where godfrey (the user and then database) is replaced by your Postgres user name (and database name, which is the same), which has been set up to be the same name as your EECS account, as you know. And replacing the last field with your Postgres password, of course.
+
+We can use a Java package pgpass courtesy of technology16 at GitHub - technology16/pgpass: Simple Java .pgpass file loader under the Apache License 2.0. A copy of this is compiled and available for use in …/PG/. Thus, you can
+
+import pgpass.*;
+and call
+
+String passwd = PgPass.get("db", "*", user, user);
+for your program to fetch the password from '~/.pgpass' of the person invoking the program.
+
+Seeding
+Your program chooses treasure entries at random to populate loot for the new quest. Postgres provides a function called random() that returns a random float between 0 and 1. Programs that take random actions, however, are hard to debug! Providing the same seed, however, a second invocation of the program means that it will get the same sequence of “random” choices as the first invocation.
+
+To seed the random function in Postgres, one executes
+
+select setseed(<seed>);
+with <seed> above replaced with a float between -1 and 1; e.g., setseed(0.618).
+
+Example Program
+Refer to the guide PostgreSQL: JDBC on PRISM at CSE York for a practical overview of using JDBC on PRISM with the Postgres server on db.
+
+See CustTotal.java for a slightly reworked version that uses pgpass. Note that to compile and run this,
+
+you need to have the YRB schema set up in your database,
+you need to have ~/.pgpass set up properly, as discussed above, and
+you must replace the value “godfrey” of user in the source with your Postgres user-account name.
+It is a good idea to grab this and get it to compile and run to know that you have your environment all set up and working.
+
+Strategies
+How to sample randomly treasure for loot?
+
+We could use random() to order the tuples of Treasure. For example, to choose randomly one treasure tuple:
+
+select *
+from Treasure
+order by random()
+limit 1;
+If you were to put the above query in a loop to sample for n treasure tuples, that would be effectively sampling with replacement.
+
+Of course, we could open a cursor on
+
+select *
+from Treasure
+order by random();
+to fetch randomly more than one tuple from treasure by iterating the cursor; then we would be effectively sampling without replacement.
+
+Deliverables
+Due by 11:59pm Tuesday 8 December 2020.
+There is a grace period until the end (11:59pm) of Sunday 13 December 2020 to submit the project; no penalty will be applied.
+
+Have your app named CreateQuest.java. Turn in your file electronically via the submit command on PRISM machines.
+
+% submit 3421X app CreateQuest.java
+in which “X” above is replaced by “A” or by “B”, depending on whether you are in Section A or Section B, respectively.
+
+FAQ
+Do I have to accommodate the case of the user providing a seed but not a user name on the command line?
+
+No. The order of the parameters for the app is fixed. In general, it would be better to have the app accept flags and parameters; e.g.,
+
+CreateQuest -theme <theme> -realm <realm> -day <day> -amount <amount> -seed <seed> -user <user>
+so that the parameters could be provided in any order.
+
+That would be more elegant, but would take more programming. So we did not ask for this for the project.
+
+I got my program to compile fine using the PgPass package and the PostgreSQL driver JAR — so javac saw the classpath fine! — but then I got an error message when I tried running my program that it couldn't either find the driver or the PgPass package. What is wrong?
+
+The Java runtime (java) has to be able to “see” the included packages and JARs too, not just the compiler (javac)! So it you compiled with
+
+% javac -cp … CreateQuest.java
+then when you run your app, you also have to provide the CLASSPATH addtion via “-cp”:
+
+% java -cp … CreateQuest …
+Of course, if you have primed your shell — or added these paths to your CLASSPATH in the init (e.g., .cshrc) for the shell that you use (e.g., csh) so you don't have to prime your CLASSPATH for every new shell — both javac and java will find these without needing “-cp”.
+
+How do I set my CLASSPATH for Java with this additional path so that I don't need to use “-cp”?
+
+Well … this is quite dependent on what nix command shell you use by default, or if you are working in an IDE such as *Eclipse. So I cannot cover all the cases; you should seek out documentation for your environment.
+
+Working with csh or csh-related (e.g, tcsh),
+
+% setenv CLASSPATH ${CLASSPATH}:'/eecs/dept/course/2020-21/F/3421A/PG/*:/eecs/dept/course/2020-21/F/3421A/PG/'
+if the environment variable already exists, or, say,
+
+% setenv CLASSPATH % '/eecs/dept/course/2020-21/F/3421A/PG/*:/eecs/dept/course/2020-21/F/3421A/PG/:.'
+if it doesn't.
+
+Of course, you can modify your command shell's init file (e.g., .cshrc) so that this is done automatically for each new shell you launch.
+
+If you are a sh or bash user (or zsh, etc.),
+
+% export CLASSPATH=${CLASSPATH}:'/eecs/dept/course/2020-21/F/3421A/PG/*:/eecs/dept/course/2020-21/F/3421A/PG/'
+if the environment variable already exists, or
+
+% export CLASSPATH='/eecs/dept/course/2020-21/F/3421A/PG/*:/eecs/dept/course/2020-21/F/3421A/PG/:.'
+if not.
+
+And, of course, you could modify your command shell's init file (e.g., .bash).
+
+The IDE ECLIPSE has a menu option for adding paths to its internal CLASSPATH.
+
+What are examples of new quests I could use to test my program?
+
+Er … be creative! An easy trick:
+
+select * from quest limit 12;
+returns
+
+      theme      |  realm   |    day     | succeeded 
+-----------------+----------+------------+-----------
+ Airport Chaos   | Buffalo  | 2016-08-06 | 20:59:06
+ Niagara Bowling | Buffalo  | 2016-08-06 | 22:47:13
+ Merlin Prophesy | Camelot  | 2016-08-06 | 21:51:14
+ Coral Chorus    | The Deep | 2016-08-06 | 19:32:59
+ Funny Fishes    | The Deep | 2016-08-06 | 21:00:47
+ Seahorse Sauna  | The Deep | 2016-08-06 | 20:28:04
+ Thor Snore      | Valhalla | 2016-08-06 | 21:15:33
+ 50% off!!       | Walmart  | 2016-08-06 | 21:49:29
+ I95 Race        | Buffalo  | 2016-08-07 | 
+ Crow's Lament   | Camelot  | 2016-08-07 | 
+ Funny Fishes    | The Deep | 2016-08-07 | 21:45:09
+ Raccoon Rodeo   | Valhalla | 2016-08-07 | 21:27:57
+(12 rows)
+You could use any of these, replacing the day with a future day.
+
+And use any of these to test a request for adding a duplicate quest fails gracefully. (Note that the failure mode in that case will be that the day is not a future date!) And corrupt the realm value to check your app fails gracefully for that “error”. And so forth.
+
+What is this .pgpass file that I need to set up so that my program can pick up the password for my Postgres user account (using the provided PgPass package)?
+
+See § Setting up drop-through authentication in the psql: PostgreSQL's shell client quide.
+
+You're putting this file in your home directory on PRISM, so at “~/.pgpass”. It should have permissions “-rw-------”; that is, read & write for user, but not for group or other. (You're putting your Postgres password in there; you don't want people easily reading it!)
+
+Its content is a one-liner; e.g.,
+
+db:*:godfrey:godfrey:not_my_passwd
+The first value, “db“ is the database-server host; i.e., db.eecs.yorku.ca. The second is the port that clients connect via with the host; i.e., 5432. A “*” in a field here says to match the default value. The third value is your Postgres account name. Replace “godfrey” with that. The fourth value is the Postgres database to connect to (by default if not overriden elsewhere). Your database is named the same as your account name in our Postgres setup on PRISM. And finally, the last value is your password for your Postgres account.
+
+Why are we asking you to use .pgpass for your app to read the password to authenticate a database connection? Because we are not permitting you to hardcode your password in the clear into your Java source code. First, because that is extremely bad security practice. And second, when someone else compiles and uses your program — say, a TA or professor marking the project — they cannot authenticate and connect to your database via your account. The program will be reading their .pgpass then letting them authenticate as them and connecting to their database.
+
+—Parke Godfrey (Section A)
+—Wenxiao Fu (Section B)
+—Gehad Ouda (TA)
